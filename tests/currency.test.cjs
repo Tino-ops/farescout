@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict');
+const {convert}=require('../static/currency.js');
+const rates={CAD:{cad_per_unit:1},USD:{cad_per_unit:1.4},GBP:{cad_per_unit:1.9}};
+assert.equal(convert(100,'USD','CAD',rates),140);
+assert.equal(convert(140,'CAD','USD',rates),100);
+assert.ok(Math.abs(convert(100,'GBP','USD',rates)-135.71428571428572)<1e-10);
+assert.equal(convert(100,'CAD','CAD',null),100);
+assert.equal(convert(100,'XYZ','USD',rates),null);
+assert.equal(convert(NaN,'USD','CAD',rates),null);
+assert.equal(convert(100,'USD','CAD',{USD:{cad_per_unit:0},CAD:rates.CAD}),null);
+console.log('7 currency conversion assertions passed');

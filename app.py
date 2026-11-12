@@ -1,5 +1,6 @@
 """FareScout: dependency-free personal travel dashboard and JSON API."""
 import json, os, sqlite3, secrets, argparse
+from exchange import get_rates, ExchangeError
 from providers import status as provider_status, search as search_flights, validate_search, ProviderError
 from datetime import datetime, timezone, date
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
@@ -63,6 +64,9 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
         if path == '/api/config': return self.send_json({'airports': AIRPORTS, 'mode': 'demo', 'live_tracking': False})
+        if path == '/api/exchange':
+            try: return self.send_json(get_rates())
+            except ExchangeError as error: return self.send_json({'error':str(error)},503)
         if path == '/api/provider': return self.send_json(provider_status())
         if path == '/api/deals': return self.send_json(json.loads((ROOT / 'data.json').read_text()))
         if path == '/api/watches':

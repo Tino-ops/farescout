@@ -25,7 +25,7 @@ Open http://127.0.0.1:8000. Data persists in `farescout.db`; set `FARESCOUT_DB` 
 
 ## Honest demo status
 
-**All supplied destinations and prices are fictional examples, not current travel offers.** Nothing is scraped. No Skyscanner, Expedia or Duffel connection is activated. Campaign labels are illustrative; no live promotion is asserted. Prices are not converted across CAD/USD, and package examples are not bookable bundles. Watchlists persist, but saving a watch does not start live monitoring.
+**All supplied destinations and prices are fictional examples, not current travel offers.** Nothing is scraped. No Skyscanner, Expedia or Duffel connection is activated. Campaign labels are illustrative; no live promotion is asserted. The original prices remain unchanged by optional CAD/USD display conversion, and package examples are not bookable bundles. Watchlists persist, but saving a watch does not start live monitoring.
 
 2026 campaign calendar: Black Friday Nov 27; Cyber Monday Nov 30; Travel Tuesday Dec 1. The app contains dates rather than a misleading countdown that would expire.
 
@@ -78,3 +78,13 @@ https://github.com/Tino-ops/farescout
 The separate flight quote form now calls a server-side Duffel v2 adapter when configured. See [provider decision and setup](docs/PROVIDERS.md). No token is included; no live account or route has been verified. The inspiration catalogue remains illustrative.
 
 `GET /api/provider` exposes connection mode without secrets. `POST /api/flights/search` accepts origin, destination airport code, departure, return_date and adults. Search is user-triggered; test responses remain explicitly simulated. Live use requires `DUFFEL_ALLOW_LIVE=1`; a persistent UTC daily quota defaults to 20 attempts. These are total-party quotes in the provider’s currency. Quote expiry and operating carriers are displayed. No bookings, automatic collection or quote-history writes occur from this endpoint.
+
+## CAD and USD display conversion
+
+Use **Display prices in** to switch between CAD, USD and original currency. Converted prices are indicative estimates; the original quote remains visible. Budget filters use the selected display currency; the separate **Quoted currency** filter still filters the original currency. Trip targets, alert thresholds and observations retain their original currency and are not rewritten. Historical observations are displayed at the current indicative rate, not the historical exchange rate.
+
+`GET /api/exchange` reads the Bank of Canada daily FX group, cached for one hour, using observations at most 7 days old. Weekend/holiday dates remain visible. The UI shows observation dates and retrieval time; missing rates or a failed refresh leave prices in the original currency. No made-up rate or silent stale fallback is used. Supported source currencies are those present in the Bank's returned daily group; unsupported currencies display without conversion. The service needs no FX API key, but requires outbound HTTPS access to the Bank of Canada.
+
+Source: https://www.bankofcanada.ca/valet-api-how-to/ . Data is available free from the Bank of Canada; conversion calculations are derived by FareScout. Displayed estimates exclude provider/card FX fees and are not settlement quotes. Changing currency does not repeat a Duffel search.
+
+Additional check: `node tests/currency.test.cjs`.
