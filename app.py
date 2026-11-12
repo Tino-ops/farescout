@@ -1,5 +1,6 @@
 """FareScout: dependency-free personal travel dashboard and JSON API."""
 import json, os, sqlite3, secrets, argparse
+from providers import status as provider_status, search as search_flights, validate_search, ProviderError
 from datetime import datetime, timezone, date
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
@@ -20,6 +21,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS prices(id INTEGER PRIMARY KEY, watch_id TEXT REFERENCES watches(id) ON DELETE CASCADE, amount REAL NOT NULL, currency TEXT NOT NULL, source TEXT NOT NULL, observed_at TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS notifications(id INTEGER PRIMARY KEY, watch_id TEXT REFERENCES watches(id) ON DELETE CASCADE, message TEXT NOT NULL, created_at TEXT NOT NULL, emailed INTEGER DEFAULT 0);
         CREATE TABLE IF NOT EXISTS saved(deal_id TEXT PRIMARY KEY);
+        CREATE TABLE IF NOT EXISTS search_usage(id INTEGER PRIMARY KEY, requested_at TEXT NOT NULL);
         ''')
 
 def validate_watch(data):
@@ -61,6 +63,7 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
         if path == '/api/config': return self.send_json({'airports': AIRPORTS, 'mode': 'demo', 'live_tracking': False})
+        if path == '/api/provider': return self.send_json(provider_status())
         if path == '/api/deals': return self.send_json(json.loads((ROOT / 'data.json').read_text()))
         if path == '/api/watches':
             with connect() as db:
@@ -84,6 +87,18 @@ class Handler(SimpleHTTPRequestHandler):
             data = json.loads(self.rfile.read(length))
             if not isinstance(data, dict): raise ValueError('Expected a JSON object')
             path = urlparse(self.path).path
+            if path == '/api/flights/search':
+                validate_search(data)
+                if not provider_status()['search_enabled']:
+                    return self.send_json({'error':'Flight search is not connected or live use is disabled. Configure the server with a Duffel test token first.'},503)
+                with connect() as db:
+                    db.execute('BEGIN IMMEDIATE')
+                    count = db.execute('SELECT COUNT(*) FROM search_usage WHERE substr(requested_at,1,10)=?',(now()[:10],)).fetchone()[0]
+                    limit = max(1,min(1000,int(os.getenv('DUFFEL_DAILY_SEARCH_LIMIT','20'))))
+                    if count >= limit: return self.send_json({'error':'Daily search limit reached. No further provider requests will be made today.'},429)
+                    db.execute('INSERT INTO search_usage(requested_at) VALUES(?)',(now(),))
+                try: return self.send_json(search_flights(data))
+                except ProviderError as error: return self.send_json({'error':str(error)},502)
             with connect() as db:
                 if path == '/api/watches':
                     values = validate_watch(data)

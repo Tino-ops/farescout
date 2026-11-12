@@ -15,7 +15,7 @@ class AppTests(unittest.TestCase):
         headers={'Content-Type':'application/json'}
         if origin: headers['Origin']=origin
         req=urllib.request.Request(self.base+path,data=json.dumps(data).encode() if data is not None else None,headers=headers)
-        with urllib.request.urlopen(req) as response: return json.load(response)
+        with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(req, timeout=5) as response: return json.load(response)
     def watch(self,**changes):
         data=dict(origin='HRE',destination='Cape Town',departure=str(date.today()+timedelta(days=30)),return_date=str(date.today()+timedelta(days=35)),budget=500,currency='USD',adults=1);data.update(changes)
         return self.request('/api/watches',data)['id']
@@ -39,6 +39,21 @@ class AppTests(unittest.TestCase):
     def test_cross_origin_blocked(self):
         with self.assertRaises(urllib.error.HTTPError) as error:self.request('/api/saved',{'id':'lisbon','saved':True},origin='https://example.com')
         self.assertEqual(error.exception.code,403)
+    def test_provider_disconnected_and_no_secret(self):
+        from unittest.mock import patch
+        import os
+        with patch.dict(os.environ, {}, clear=True):
+            result=self.request('/api/provider');self.assertFalse(result['search_enabled'])
+            with self.assertRaises(urllib.error.HTTPError) as error:self.request('/api/flights/search',dict(origin='HRE',destination='CPT',departure=str(date.today()+timedelta(days=30)),return_date=str(date.today()+timedelta(days=35)),adults=1))
+            self.assertEqual(error.exception.code,503)
+    def test_provider_quota_blocks_second_request(self):
+        from unittest.mock import patch
+        import os
+        query=dict(origin='HRE',destination='CPT',departure=str(date.today()+timedelta(days=30)),return_date=str(date.today()+timedelta(days=35)),adults=1)
+        with patch.dict(os.environ, {'DUFFEL_ACCESS_TOKEN':'duffel_test_fixture','DUFFEL_DAILY_SEARCH_LIMIT':'1'}, clear=True), patch('app.search_flights',return_value={'offers':[]}) as mock:
+            self.request('/api/flights/search',query)
+            with self.assertRaises(urllib.error.HTTPError) as error:self.request('/api/flights/search',query)
+            self.assertEqual(error.exception.code,429);self.assertEqual(mock.call_count,1)
     def test_demo_data_is_explicit(self):
         data=self.request('/api/deals')['deals'];self.assertTrue(all(d['demo'] and d['checked_at'] is None for d in data))
         self.assertEqual({d['origin'] for d in data},{'YHZ','YYZ','YUL','HRE'})

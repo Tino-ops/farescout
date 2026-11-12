@@ -69,12 +69,12 @@ This is a local, single-user MVP, **not a public production booking service**. P
 
 Recommended next work: approved live provider; richer comparable quote schema; scheduled collection; auth; flexible date search; genuine package inventory; booking links; accessibility/browser tests.
 
-## Repository creation
+## Repository
 
-Once GitHub CLI is authenticated, from this folder:
+https://github.com/Tino-ops/farescout
 
-```sh
-gh repo create farescout --private --source=. --remote=origin --push
-```
+## Duffel flight search integration
 
-Review the project before making it public. No personal contact information, credentials or runtime database is committed.
+The separate flight quote form now calls a server-side Duffel v2 adapter when configured. See [provider decision and setup](docs/PROVIDERS.md). No token is included; no live account or route has been verified. The inspiration catalogue remains illustrative.
+
+`GET /api/provider` exposes connection mode without secrets. `POST /api/flights/search` accepts origin, destination airport code, departure, return_date and adults. Search is user-triggered; test responses remain explicitly simulated. Live use requires `DUFFEL_ALLOW_LIVE=1`; a persistent UTC daily quota defaults to 20 attempts. These are total-party quotes in the provider’s currency. Quote expiry and operating carriers are displayed. No bookings, automatic collection or quote-history writes occur from this endpoint.
