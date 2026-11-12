@@ -1,0 +1,1 @@
+{"name":"farescout","version":"0.1.0","private":true,"description":"Travel discovery and price watch dashboard by Tino","scripts":{"dev":"python3 app.py --host 0.0.0.0 --port ${PORT:-8000}","test":"python3 -m unittest discover -s tests -v","check":"node --check static/app.js"}}
